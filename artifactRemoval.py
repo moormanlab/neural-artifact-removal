@@ -16,10 +16,8 @@ defChunkSize = pow(2,21) # at 30 kHz: 2**20 ~35 s, 2**21 ~70 s, 2**22 ~ 2 min 20
 defOverlap = 256
 defAmpGain = 0.000195
 
-#cluster version
-#ray.init(plasma_directory='/home/gridsan/aburman/tmp/',temp_dir='/home/gridsan/aburman/tmp/',num_gpus=0,include_webui=False)
-#local version
-ray.init(num_cpus=8,include_webui=False)
+from rayconfig import rayInit
+rayInit()
 
 logger = logging.getLogger('artifactRemoval')
 
@@ -135,26 +133,26 @@ def artifactRemovalCoeff(coeffi, Fs,I,multichannel=None,makefigures=False,ampGai
 
     coeff = swt(coeffi,wavelet=wave_name,level=N)
 
-    #%k2v =      [5   5   5   5   5   5   3   2   1.5 1.5];
-    k2M = np.zeros((10,10))
-    #            1    2    3    4    5    6    7    8    9    10
-    k2M[ 0,:] = [3.3, 5  , 5  , 3  , 2.7, 2  , 1.5, 1.5, 1.2, .8 ];  # 15 a 7.5
-    k2M[ 1,:] = [5  , 5  , 5  , 3  , 2  , 2  , 1.5, 1.5, .9 , .9 ];  # 7.5 a 3.75
-    k2M[ 2,:] = [5  , 5.5, 5  , 4  , 2.5, 1.6, 1.5, 1.3,  1 , .7 ];  # 3.75 a 1.88
-    k2M[ 3,:] = [3.5, 3.5, 2.5, 2.2, 2  , 1.6, 1.3, .9 , .7 , .7 ];  # 1.88 a 0.94
-    k2M[ 4,:] = [2.5, 2.5, 2  , 2  , 1.8, 1.5, 1  , .8 , 0.6, 0.7];  # 940 a 470
-    k2M[ 5,:] = [2  , 2.4, 1.8, 1.6, 1.5, 1.3, 1  , .7 , 0.6, 0.6];  # 470 a 235
-    k2M[ 6,:] = [1.7, 1.7, 1.2, 2  ,  .7, 0.8, .6 , .7 , 0.6, 0.8];  # 235 a 117
-    k2M[ 7,:] = [1.5, 1.2, 1.2, 1  , .9 ,  .6, .6 , .4 , 0.4, .4 ];  # 117 a 60
-    k2M[ 8,:] = [1  , .7 , 1  , .8 , .5 , .5 , .4 , .4 , 0.4, .4 ];  # 60 a 30
-    k2M[ 9,:] = [.5 , .5 , .5 , .5  , .5, .5 , .5 , .5 , .5 , .5 ];  # 30 a 15
-    k2v=k2M[I,:]
+#    #%k2v =      [5   5   5   5   5   5   3   2   1.5 1.5];
+#    k2M = np.zeros((10,10))
+#    #            1    2    3    4    5    6    7    8    9    10
+#    k2M[ 0,:] = [3.3, 5  , 5  , 3  , 2.7, 2  , 1.5, 1.5, 1.2, .8 ];  # 15 a 7.5
+#    k2M[ 1,:] = [5  , 5  , 5  , 3  , 2  , 2  , 1.5, 1.5, .9 , .9 ];  # 7.5 a 3.75
+#    k2M[ 2,:] = [5  , 5.5, 5  , 4  , 2.5, 1.6, 1.5, 1.3,  1 , .7 ];  # 3.75 a 1.88
+#    k2M[ 3,:] = [3.5, 3.5, 2.5, 2.2, 2  , 1.6, 1.3, .9 , .7 , .7 ];  # 1.88 a 0.94
+#    k2M[ 4,:] = [2.5, 2.5, 2  , 2  , 1.8, 1.5, 1  , .8 , 0.6, 0.7];  # 940 a 470
+#    k2M[ 5,:] = [2  , 2.4, 1.8, 1.6, 1.5, 1.3, 1  , .7 , 0.6, 0.6];  # 470 a 235
+#    k2M[ 6,:] = [1.7, 1.7, 1.2, 2  ,  .7, 0.8, .6 , .7 , 0.6, 0.8];  # 235 a 117
+#    k2M[ 7,:] = [1.5, 1.2, 1.2, 1  , .9 ,  .6, .6 , .4 , 0.4, .4 ];  # 117 a 60
+#    k2M[ 8,:] = [1  , .7 , 1  , .8 , .5 , .5 , .4 , .4 , 0.4, .4 ];  # 60 a 30
+#    k2M[ 9,:] = [.5 , .5 , .5 , .5  , .5, .5 , .5 , .5 , .5 , .5 ];  # 30 a 15
+#    k2v=k2M[I,:]
 
     for i in range(N):
         Di = np.array(coeff[N-i-1][1])
-        k2 = k2v[i];
+#        k2 = k2v[i];
         sigma_sq = np.median(np.abs(Di))/0.6745
-        Thi = k2*sigma_sq*np.sqrt(2*logL)
+#        Thi = k2*sigma_sq*np.sqrt(2*logL)
         ThD = 5*sigma_sq # found to be similar to take 3 IQD
 
 
@@ -218,18 +216,18 @@ def artifactRemovalCoeff(coeffi, Fs,I,multichannel=None,makefigures=False,ampGai
             #plotWithHist(xRange,coeff[N-i-1][1],label='orig',color='blue')
             plt.plot(xRange,Di,color='red',label='new',linewidth=.1)
             #plotWithHist(xRange,Di,label='new',color='red')
-            plt.axhline(Thi,0,1,color='g')
-            plt.axhline(-Thi,0,1,color='g')
+            #plt.axhline(Thi,0,1,color='g')
+            #plt.axhline(-Thi,0,1,color='g')
             plt.axhline(ThD,0,1,color='k')
             plt.axhline(-ThD,0,1,color='k')
-            plt.axhline(ThHigh,0,1,color='k',linestyle='-.')
-            plt.axhline(ThLow,0,1,color='k',linestyle='-.')
-            plt.axhline(m0,0,1,color='g',linestyle=':')
-            plt.axhline(q9,0,1,color='g',linestyle=':')
-            plt.axhline(q95,0,1,color='g',linestyle=':')
-            plt.axhline(m2,0,1,color='g',linestyle=':')
-            plt.axhline(q1,0,1,color='g',linestyle=':')
-            plt.axhline(q05,0,1,color='g',linestyle=':')
+            plt.axhline(ThHigh,0,1,color='k',linestyle='-.',linewidth=3.)
+            plt.axhline(ThLow,0,1,color='k',linestyle='-.',linewidth=3.)
+            plt.axhline(m0,0,1,color='g',linestyle=':',linewidth=3.)
+            plt.axhline(q9,0,1,color='g',linestyle=':',linewidth=3.)
+            plt.axhline(q95,0,1,color='g',linestyle=':',linewidth=3.)
+            plt.axhline(m2,0,1,color='g',linestyle=':',linewidth=3.)
+            plt.axhline(q1,0,1,color='g',linestyle=':',linewidth=3.)
+            plt.axhline(q05,0,1,color='g',linestyle=':',linewidth=3.)
 
             ## This will show that ThD is similar to 3*IQD
             #a1=np.quantile(coeff[N-i-1][1],0.25)
@@ -238,7 +236,7 @@ def artifactRemovalCoeff(coeffi, Fs,I,multichannel=None,makefigures=False,ampGai
             #plt.axhline(a2+1.5*(a2-a1),0,1,color='m')
             #plt.axhline(a1-3*(a2-a1),0,1,color='c')
             #plt.axhline(a2+3*(a2-a1),0,1,color='c')
-            plt.ylim(1.1*min(-Thi,q05),1.1*max(Thi,q95))
+            #plt.ylim(1.1*min(-Thi,q05),1.1*max(Thi,q95))
             plt.title(str(i+1))
 
         coeff[N-i-1]=(np.zeros(L),Di)
@@ -268,7 +266,7 @@ def artifactRemovalCoeff(coeffi, Fs,I,multichannel=None,makefigures=False,ampGai
     return data_new
 
 
-def artifactRemovalb(data_art, Fs,multichannel=None,makefigures=False,ampGain=defAmpGain):
+def artifactRemovalChunkb(data_art, Fs,multichannel=None,makefigures=False,ampGain=defAmpGain):
     L = len(data_art)
     logL = np.log(L) 
     xRange = np.array(range(L))/Fs
@@ -314,11 +312,11 @@ def artifactRemovalb(data_art, Fs,multichannel=None,makefigures=False,ampGain=de
 
 
 @ray.remote
-def artifactRemoval(data_art, Fs,multichannel=None,makefigures=False):
-    return artifactRemovalb(data_art, Fs,multichannel=multichannel,makefigures=False)
+def artifactRemovalChunk(data_art, Fs,multichannel=None,makefigures=False):
+    return artifactRemovalChunkb(data_art, Fs,multichannel=multichannel,makefigures=False)
 
 
-def mainArtifactParal(filename,Fs,NChannel,chunkSize,overlap):
+def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverlap,outputFile=None,extractArtifact=False):
     filepath = os.path.dirname(os.path.abspath(filename))
     filebasename = os.path.basename(filename)
 
@@ -335,7 +333,11 @@ def mainArtifactParal(filename,Fs,NChannel,chunkSize,overlap):
     logger.info('lastChunk {}'.format(lastChunk))
     print('lastChunk {}'.format(lastChunk))
 
-    fileout = filepath + '/' + filebasename.rsplit('.',1)[0] + '_ART_CAR.' + filebasename.rsplit('.',1)[1]
+    if outputFile is None:
+      fileout = filepath + '/' + filebasename.rsplit('.',1)[0] + '_ART_CAR.' + filebasename.rsplit('.',1)[1]
+    else:
+      fileout = outputFile
+
     logger.info('Output = {a}'.format(a=fileout))
 
     with open(fileout,'wb') as fod:
@@ -374,7 +376,7 @@ def mainArtifactParal(filename,Fs,NChannel,chunkSize,overlap):
             artifId = ray.put(artifMulti)
 
             for j in range(NChannel):
-                outId.append(artifactRemoval.remote(dataId[j],Fs,multichannel=artifId))
+                outId.append(artifactRemovalChunk.remote(dataId[j],Fs,multichannel=artifId))
 
             for j in range(NChannel):
                 out[j] = ray.get(outId[j])
@@ -383,6 +385,10 @@ def mainArtifactParal(filename,Fs,NChannel,chunkSize,overlap):
             for j in range(NChannel):
                 out[j] -= median
                 
+            # instead of saving the cleaned data, we save the artifact
+            if extractArtifact:
+                out = data - out
+
             arrout=out.transpose().reshape((-1,)).astype(np.int16)
             if i == 0:
                 arrout=arrout[:-overlap*NChannel]
@@ -394,7 +400,7 @@ def mainArtifactParal(filename,Fs,NChannel,chunkSize,overlap):
             arrout.tofile(fod,sep="",format="%d")
 
 
-def mainArtifact(filename,Fs,NChannel,chunkSize,overlap):
+def artifactRemovalSingleThread(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverlap,outputFile=None,extractArtifact=False):
     filepath = os.path.dirname(os.path.abspath(filename))
     filebasename = os.path.basename(filename)
 
@@ -411,8 +417,11 @@ def mainArtifact(filename,Fs,NChannel,chunkSize,overlap):
     logger.info('lastChunk {}'.format(lastChunk))
     print('lastChunk {}'.format(lastChunk))
 
-    #fileout = filepath + '/' + filebasename.rsplit('.',1)[0] + '_ART_CAR.' + filebasename.rsplit('.',1)[1]
-    fileout = filepath + '/' + filebasename.rsplit('.',1)[0] + '_ART_CAR_test.' + filebasename.rsplit('.',1)[1]
+    if outputFile is None:
+      fileout = filepath + '/' + filebasename.rsplit('.',1)[0] + '_ART_CAR.' + filebasename.rsplit('.',1)[1]
+    else:
+      fileout = outputFile
+
     logger.info('Output = {a}'.format(a=fileout))
     
     with open(fileout,'wb') as fod:
@@ -444,12 +453,16 @@ def mainArtifact(filename,Fs,NChannel,chunkSize,overlap):
             out = np.zeros((NChannel,chunkSize))
 
             for j in range(NChannel):
-                out[j] = artifactRemovalb(data[j],Fs,multichannel=artifMulti)
+                out[j] = artifactRemovalChunkb(data[j],Fs,multichannel=artifMulti)
             
             median = np.median(out,axis=0)
             for j in range(NChannel):
                 out[j] -= median
                 
+            # instead of saving the cleaned data, we save the artifact
+            if extractArtifact:
+                out = data - out
+
             arrout=out.transpose().reshape((-1,)).astype(np.int16)
             if i == 0:
                 arrout=arrout[:-overlap*NChannel]
@@ -477,11 +490,25 @@ if __name__ == '__main__':
     import time
     start_time = time.time()
     parser = argumentParser()
-    parser.add_argument('-p','--parallel', type=bool, default=False, help= 'run parallel script')
+    parser.add_argument('-s','--singleThread', default=False, action='store_true', help= 'run script as single-thread')
+    parser.add_argument('-of','--outputFile', type=str, default=None, help= 'output file name')
+    parser.add_argument('-e','--extract', default=False, action='store_true', help= 'extract artifact instead of data')
     args = parser.parse_args() 
-    if args.parallel == True:
-        mainArtifactParal(filename=args.filename,Fs=args.samplingF, NChannel=args.channels, chunkSize=pow(2,args.chunkSize), overlap=pow(2,args.overlap))
+    if args.singleThread == True:
+        artifactRemovalSingleThread(filename=args.filename,
+                                    Fs=args.samplingF,
+                                    NChannel=args.channels,
+                                    chunkSize=pow(2,args.chunkSize),
+                                    overlap=pow(2,args.overlap),
+                                    outputFile=args.outputFile,
+                                    extractArtifact=args.extract)
     else:
-        mainArtifact(filename=args.filename,Fs=args.samplingF, NChannel=args.channels, chunkSize=pow(2,args.chunkSize), overlap=pow(2,args.overlap))
+        artifactRemoval(filename=args.filename,
+                        Fs=args.samplingF,
+                        NChannel=args.channels,
+                        chunkSize=pow(2,args.chunkSize),
+                        overlap=pow(2,args.overlap),
+                        outputFile=args.outputFile,
+                        extractArtifact=args.extract)
     total_time = time.time() - start_time
     print('total --- {:d} minutes, {:.2f} seconds ---'.format(round((total_time)/60),total_time%60))
