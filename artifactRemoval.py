@@ -4,8 +4,8 @@ import numpy as np
 from scipy.signal import butter, filtfilt
 from pywt import swt,iswt
 import matplotlib.pyplot as plt
-#plt.ioff()
 import logging
+import time
 import os
 from scipy.ndimage import gaussian_filter as gaussf
 import ray
@@ -22,14 +22,13 @@ rayInit()
 
 logger = logging.getLogger('artifactRemoval')
 
-
-def plotWithHist(x,y,label='',histbins=500,color=None):
-    plt.plot(x,y,linewidth=.2,label=label,color=color)
+def plotWithHist(ax,x,y,label='',histbins=500,color=None):
+    ax.plot(x,y,linewidth=.2,label=label,color=color)
     bars=np.histogram(y,histbins)
     height=np.ceil(np.max(bars[1]))-np.floor(np.min(bars[1]))
     height=height/len(bars[0])
     scalef =  x[-1]*.1 / np.max(bars[0])
-    plt.barh(bars[1][:-1],bars[0]*scalef,height=height,left=2*x[-1]-x[-2],color=color)
+    ax.barh(bars[1][:-1],bars[0]*scalef,height=height,left=2*x[-1]-x[-2],color=color)
 
 
 def bandPassFilter(signal,Fs,Low,High):
@@ -68,7 +67,6 @@ def getMultiChannelArtifact(data,Fs,NChannel,figures=None):
       fig,ax = plt.subplots(N+1,1,sharex=True)
       fig.set_size_inches(10,8)
 
-    #artiff=np.array([],dtype=int)
     artiff=[]
 
     for i in range(N):
@@ -83,34 +81,32 @@ def getMultiChannelArtifact(data,Fs,NChannel,figures=None):
         artiff.append(artifff)
 
         if figures:
-            ax[i] = plt.subplot(N+1,1,i+1)
             ax[i].plot(xRange,Di,color='red',label='new',linewidth=.1)
             ax[i].axhline(ThD,0,1,color='k')
             ax[i].axhline(-ThD,0,1,color='k')
             ax[i].set_ylim(max(-3*ThD,Di.min()),min(3*ThD,Di.max()))
-            ax[i].set_ylabel('Coeff {:}'.format(i+1))
-            ax[i].set_xticklabels('')
+            ax[i].set_ylabel('Coeff {:1}'.format(i+1))
             ax[i].set_yticklabels('')
 
-    #artiff = np.unique(artiff)
 
     #Plot results
     if figures:
-        ax[N] = plt.subplot(N+1,1,N+1);
         ax[N].plot(xRange,medianhabs,color='blue',label='Artf-data')
-#        plt.plot(artiff/Fs,np.zeros(artiff.shape)-50,'.')
-        #plotWithHist(xRange,coeffi,label='artf-data',color='blue')
-        #plotWithHist(xRange,data_new,label='new-data',color='red')
+        #ax[N].plot(artiff/Fs,np.zeros(artiff.shape)-50,'.')
+        #plotWithHist(ax[N],xRange,coeffi,label='artf-data',color='blue')
+        #plotWithHist(ax[N],xRange,data_new,label='new-data',color='red')
         ax[N].set_xlabel('Time [s]')
         ax[N].set_ylabel('Median artf')
-        #plt.title('orig/new')
         for i in range(len(artiff)):
             ax[N].plot(artiff[i]/Fs,np.zeros(artiff[i].shape)-(i+1)*10,'.')
-        #plt.legend(loc='upper right')
-        #plt.savefig(figures+'Coeff.pdf')
-        #plt.savefig(figures+'Coeff.svg')
+        ax[0].set_title('Artifact Coefficients')
         fig.tight_layout()
-        fig.savefig(figures+'Coeff.png',dpi=600)
+        if figures == 'show':
+            plt.show()
+        else:
+            fig.savefig(figures+'Coeff.png',dpi=600)
+            #fig.savefig(figures+'Coeff.pdf')
+            #fig.savefig(figures+'Coeff.svg')
         plt.close(fig)
     
     medianhabs -= np.median(medianhabs)
@@ -134,9 +130,13 @@ def getMultiChannelArtifact(data,Fs,NChannel,figures=None):
             plt.plot(artiff[i]/Fs,np.zeros(artiff[i].shape)-(i+2)*200,'.')
         plt.ylim(-1000,(NChannel+1)*1000)
         plt.xlabel('Time [s]')
-        #plt.savefig(figures+'Data.pdf')
-        #plt.savefig(figures+'Data.svg')
-        fig.savefig(figures+'Data.png',dpi=600)
+        fig.tight_layout()
+        if figures == 'show':
+            plt.show()
+        else:
+            #plt.savefig(figures+'Data.pdf')
+            #plt.savefig(figures+'Data.svg')
+            fig.savefig(figures+'Data.png',dpi=600)
         plt.close(fig)
     #return artifMulti
     return artiff
@@ -181,14 +181,14 @@ def artifactRemovalCoeff(coeffi, Fs,I,multichannel=None,figures=None,ampGain=def
 
         f1,f2,rate = 0.2,1.,np.log(2)
         
-        msf='{:>7.1f},{:>7.1f},{:>7.1f},{:>7.1f},{:>7.3f},{:>7.1f}'
+        msf='{:>7.1f},{:>7.1f},{:>7.1f},{:>7.1f},{:>7.3f},{:>7.1f},{:d},{:d},{:s}'
         msglowartif = 'Low amount of data point beyond +- 5 sigma, {:d} {:d} {:d}, statistics might fail {:s}'
+        msgempty = '{:s} empty {:>5.1f}, {:d}, {:d},{:s}'
         tt0 = np.where(Di>ThD)[0]
         m0=q9=q95=0
         if len(tt0):
             if len(tt0)<200:
-                logger.warning(msglowartif.format(len(tt0),i,I,str(figures) if figures else ''))
-                #print('tt0',len(tt0),i,I)
+                logger.warning(msglowartif.format(len(tt0),i+1,I+1,str(figures) if figures else ''))
             m0=np.median(Di[tt0])
             q9=np.quantile(Di[tt0],0.9)
             q95=np.quantile(Di[tt0],0.95)
@@ -199,18 +199,17 @@ def artifactRemovalCoeff(coeffi, Fs,I,multichannel=None,figures=None,ampGain=def
                 ThHigh = q95-(fact-f1)/(f2-f1)*(q95-q9)
             else:
                 ThHigh = q95
-            logger.debug(msf.format(ThD,m0,q9,q95,fact,ThHigh))
+            logger.debug(msf.format(ThD,m0,q9,q95,fact,ThHigh,i+1,I+1,str(figures) if figures else ''))
         else:
             ThHigh = ThD
-            logger.debug('{:>5.1f}'.format(ThHigh))
+            logger.debug(msgempty.format('tt0',ThHigh,i+1,I+1,str(figures) if figures else ''))
 
 
         tt2 = np.where(Di<-ThD)[0]
         m2=q1=q05=0
         if len(tt2):
             if len(tt2)<200:
-                logger.warning(msglowartif.format(len(tt2),i,I,str(figures) if figures else ''))
-                #print('tt2',len(tt2),i,I)
+                logger.warning(msglowartif.format(len(tt2),i+1,I+1,str(figures) if figures else ''))
             m2=np.median(Di[tt2])
             q1=np.quantile(Di[tt2],0.1)
             q05=np.quantile(Di[tt2],0.05)
@@ -222,10 +221,10 @@ def artifactRemovalCoeff(coeffi, Fs,I,multichannel=None,figures=None,ampGain=def
                 ThLow = q05-(fact-f1)/(f2-f1)*(q05-q1)
             else:
                 ThLow = q05
-            logger.debug(msf.format(-ThD,m2,q1,q05,fact,ThLow))
+            logger.debug(msf.format(-ThD,m2,q1,q05,fact,ThLow,i+1,I+1,str(figures) if figures else ''))
         else:
             ThLow = -ThD
-            #print('{:5.1f}'.format(ThLow))
+            logger.debug(msgempty.format('tt2',ThLow,i+1,I+1,str(figures) if figures else ''))
 
         idC = np.where(Di>ThHigh)[0]
         for j in idC:
@@ -236,13 +235,12 @@ def artifactRemovalCoeff(coeffi, Fs,I,multichannel=None,figures=None,ampGain=def
             Di[j] = ThLow**2/Di[j] #% Garrote
 
         if figures:
-            #ax=plt.subplot(N+1,1,i+1)
             ax[i].plot(xRange,coeff[N-i-1][1],color='blue',label='orig',linewidth=.1)
-            #plotWithHist(xRange,coeff[N-i-1][1],label='orig',color='blue')
+            #plotWithHist(ax[i],xRange,coeff[N-i-1][1],label='orig',color='blue')
             ax[i].plot(xRange,Di,color='red',label='new',linewidth=.1)
-            #plotWithHist(xRange,Di,label='new',color='red')
-            #plt.axhline(Thi,0,1,color='g')
-            #plt.axhline(-Thi,0,1,color='g')
+            #plotWithHist(ax[i],xRange,Di,label='new',color='red')
+            #ax[i].axhline(Thi,0,1,color='g')
+            #ax[i].axhline(-Thi,0,1,color='g')
             ax[i].axhline(ThD,0,1,color='k')
             ax[i].axhline(-ThD,0,1,color='k')
             ax[i].axhline(ThHigh,0,1,color='k',linestyle='-.',linewidth=3.)
@@ -257,13 +255,12 @@ def artifactRemovalCoeff(coeffi, Fs,I,multichannel=None,figures=None,ampGain=def
             ## This will show that ThD is similar to 3*IQD
             #a1=np.quantile(coeff[N-i-1][1],0.25)
             #a2=np.quantile(coeff[N-i-1][1],0.75)
-            #plt.axhline(a1-1.5*(a2-a1),0,1,color='m')
-            #plt.axhline(a2+1.5*(a2-a1),0,1,color='m')
-            #plt.axhline(a1-3*(a2-a1),0,1,color='c')
-            #plt.axhline(a2+3*(a2-a1),0,1,color='c')
+            #ax[i].axhline(a1-1.5*(a2-a1),0,1,color='m')
+            #ax[i].axhline(a2+1.5*(a2-a1),0,1,color='m')
+            #ax[i].axhline(a1-3*(a2-a1),0,1,color='c')
+            #ax[i].axhline(a2+3*(a2-a1),0,1,color='c')
             ax[i].set_ylim(1.1*q05,1.1*q95)
             ax[i].set_ylabel('Coeff {:}'.format(i+1))
-            ax[i].set_xticklabels('')
             ax[i].set_yticklabels('')
 
         coeff[N-i-1]=(np.zeros(L),Di)
@@ -275,23 +272,23 @@ def artifactRemovalCoeff(coeffi, Fs,I,multichannel=None,figures=None,ampGain=def
 
     #Plot results
     if figures:
-        #print('coeff {a}'.format(a=I))
         ax[N].plot(xRange,coeffi*ampGain,color='blue',label='Artf-data')
-        #plotWithHist(xRange,coeffi,label='artf-data',color='blue')
+        #plotWithHist(ax[N],xRange,coeffi,label='artf-data',color='blue')
         ax[N].plot(xRange,data_new*ampGain,color='red',label='new-data')
-        #plotWithHist(xRange,data_new,label='new-data',color='red')
+        #plotWithHist(ax[N],xRange,data_new,label='new-data',color='red')
         if multichannel is not None:
             ax[N].plot(multichannel[I]/Fs,np.zeros(multichannel[I].shape),'.')
         ax[N].set_xlabel('Time [s]')
         ax[N].set_ylabel('Amp [mV]')
         ax[N].set_ylim(1.1*min(coeffi[:-100]*ampGain),1.1*max(coeffi[:-100]*ampGain))
-        #fig.title('Coeff {a}'.format(a=I))
-        #plt.xlim(24.595,24.6)
-        #plt.legend(loc='upper right')
-        #fig.tight_layout()
-        #plt.savefig(figures+'.pdf')
-        #plt.savefig(figures+'.svg')
-        fig.savefig(figures+'.png',dpi=600)
+        ax[0].set_title('Coeff {:1}'.format(I+1))
+        fig.tight_layout()
+        if figures == 'show':
+            plt.show()
+        else:
+            #plt.savefig(figures+'.pdf')
+            #plt.savefig(figures+'.svg')
+            fig.savefig(figures+'.png',dpi=600)
         plt.close(fig)
     
     return data_new
@@ -301,18 +298,17 @@ def artifactRemovalChunkb(data_art, Fs,multichannel=None,figures=None,ampGain=de
     L = len(data_art)
     logL = np.log(L) 
     xRange = np.array(range(L))/Fs
-    #%%  Initial Filtering and Treshold Calculation
 
     N = 6
     wave_name = 'haar'
 
     # SWT
     coeff = swt(data_art,wavelet=wave_name,level=N)
-#
+
     for i in range(N):
         Di = np.array(coeff[N-i-1][1])
         if figures:
-          figdata = figures + 'Coeff{:1}'.format(i+1)
+          figdata = 'show' if figures=='show' else figures + 'Coeff{:1}'.format(i+1)
         else:
           figdata = None
         Di = artifactRemovalCoeff(Di,Fs,i,multichannel=multichannel,figures=figdata,ampGain=ampGain)
@@ -332,7 +328,11 @@ def artifactRemovalChunkb(data_art, Fs,multichannel=None,figures=None,ampGain=de
         plt.xlabel('time sample')
         plt.ylabel('Amplitude [mV]')
         plt.legend(loc='upper right')
-        fig.savefig(figures+'.png',dpi=600)
+        fig.tight_layout()
+        if figures == 'show':
+            plt.show()
+        else:
+            fig.savefig(figures+'.png',dpi=600)
         plt.close(fig)
         fig = plt.figure(figsize=(10,6))
         plt.plot(xRange,ampGain*bandPassFilter(data_art, Fs, 300,8e3),color='blue',label='Artf-data')
@@ -343,9 +343,13 @@ def artifactRemovalChunkb(data_art, Fs,multichannel=None,figures=None,ampGain=de
         plt.xlabel('time sample')
         plt.ylabel('Amplitude [mV]')
         plt.legend(loc='upper right')
-        #plt.savefig(figures+'.pdf')
-        #plt.savefig(figures+'.svg')
-        fig.savefig(figures+'Filt.png',dpi=600)
+        fig.tight_layout()
+        if figures == 'show':
+            plt.show()
+        else:
+            #plt.savefig(figures+'.pdf')
+            #plt.savefig(figures+'.svg')
+            fig.savefig(figures+'Filt.png',dpi=600)
         plt.close(fig)
 
     return XNew
@@ -367,11 +371,8 @@ def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverl
     lastChunk = (totalTimes-chunkSize)%(chunkSize-2*overlap)
     Nchunks = int(np.ceil((totalTimes-chunkSize)/(chunkSize-2*overlap)))+1*(lastChunk!=0)
     logger.info('totalTimes {}'.format(totalTimes))
-    print('totalTimes {}'.format(totalTimes))
     logger.info('Nchunks {}'.format(Nchunks))
-    print('Nchunks {}'.format(Nchunks))
     logger.info('lastChunk {}'.format(lastChunk))
-    print('lastChunk {}'.format(lastChunk))
 
     if outputFile is None:
       fileout = filepath + '/' + filebasename.rsplit('.',1)[0] + '_ART_CAR.' + filebasename.rsplit('.',1)[1]
@@ -388,8 +389,8 @@ def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverl
 
     with open(fileout,'wb') as fod:
         for i in range(Nchunks):
+            chunk_start_time = time.time()
             logger.info('Chunk {a} of {b}'.format(a=i+1,b=Nchunks))
-            print('Chunk {a} of {b}'.format(a=i+1,b=Nchunks))
             offset = 2*NChannel*(chunkSize-2*overlap)*i
             if i==0: #first chunk
                 data = np.fromfile(filename, dtype=np.int16, count=chunkSize*NChannel, sep='',offset=offset)
@@ -411,7 +412,7 @@ def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverl
             data = np.transpose(np.reshape(data,(-1,NChannel)))
 
             if figures:
-              figNameBase = figBase + 'C{:03}Artif'.format(i)
+              figNameBase = 'show' if figures=='show' else figBase + 'C{:03}Artif'.format(i)
 
             artifMulti = getMultiChannelArtifact(data,Fs,NChannel,figures=figNameBase)
 
@@ -420,7 +421,7 @@ def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverl
             if singleThread:
                 for j in range(NChannel):
                     if figures:
-                      figNameBase = figBase + 'C{:03}Chan{:03}'.format(i,j)
+                      figNameBase = 'show' if figures=='show' else figBase + 'C{:03}Chan{:03}'.format(i,j)
                     out[j] = artifactRemovalChunkb(data[j],Fs,multichannel=artifMulti,figures=figNameBase)
             else:
                 dataId = []
@@ -442,8 +443,6 @@ def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverl
                     out[j] = ray.get(outId[j])
             
             median = np.median(out,axis=0)
-            #for j in range(NChannel):
-            #    out[j] -= median
             out = out - median
 
             # instead of saving the cleaned data, we save the artifact
@@ -459,10 +458,11 @@ def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverl
                 arrout=arrout[overlap*NChannel:-overlap*NChannel]
 
             arrout.tofile(fod,sep="",format="%d")
+            chunk_total_time = time.time() - chunk_start_time
+            logger.info('total chunk time --- {:d} minutes, {:.2f} seconds ---'.format(round((chunk_total_time)/60),chunk_total_time%60))
 
 
 if __name__ == '__main__':
-    import time
     start_time = time.time()
     import argparse 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -475,8 +475,17 @@ if __name__ == '__main__':
     parser.add_argument('-s','--singleThread', default=False, action='store_true', help= 'run script as single-thread')
     parser.add_argument('-of','--outputFile', type=str, default=None, help= 'output file name')
     parser.add_argument('-e','--extract', default=False, action='store_true', help= 'extract artifact instead of data')
-    parser.add_argument('-p','--plotFigures', default=False, action='store_true', help= 'aextract artifact instead of data')
-    args = parser.parse_args() 
+    parser.add_argument('-p','--plotFigures', default=False, action='store_true', help= 'creates a folder narFigs with pictures of the working alghoritm')
+    parser.add_argument('-d','--debug', default=False, action='store_true', help= 'show figures instead of saving them (forces singleThread=True)')
+    args = parser.parse_args()
+    if args.debug == True:
+        args.plotFigures='show'
+        args.singleThread=True
+        logging.basicConfig(level=logging.DEBUG,format='%(levelname)s;p%(process)s;%(message)s')
+    else:
+        logging.basicConfig(level=logging.INFO,format='%(levelname)s;p%(process)s;%(message)s')
+        os.environ["DISPLAY"]=''
+
     artifactRemoval(filename=args.filename,
                     Fs=args.samplingF,
                     NChannel=args.channels,
@@ -487,4 +496,4 @@ if __name__ == '__main__':
                     figures=args.plotFigures,
                     singleThread=args.singleThread)
     total_time = time.time() - start_time
-    print('total --- {:d} minutes, {:.2f} seconds ---'.format(round((total_time)/60),total_time%60))
+    logger.info('total --- {:d} minutes, {:.2f} seconds ---'.format(round((total_time)/60),total_time%60))
