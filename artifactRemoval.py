@@ -426,14 +426,15 @@ def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverl
             else:
                 dataId = []
                 outId = []
-                if figures:
-                  figsId = []
+                figsId = []
                 
                 for j in range(NChannel):
                     dataId.append(ray.put(data[j]))
                     if figures:
                         figNameBase = figBase + 'C{:03}Chan{:03}'.format(i,j)
-                    figsId.append(ray.put(figNameBase))
+                        figsId.append(ray.put(figNameBase))
+                    else:
+                        figsId.append(None)
                 artifId = ray.put(artifMulti)
 
                 for j in range(NChannel):
@@ -448,6 +449,7 @@ def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverl
             # instead of saving the cleaned data, we save the artifact
             if extractArtifact:
                 out = data - out
+                np.clip(out,-(2**15-1),(2**15-1),out)
 
             arrout=out.transpose().reshape((-1,)).astype(np.int16)
             if i == 0:
