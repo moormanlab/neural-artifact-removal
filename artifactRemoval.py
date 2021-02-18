@@ -47,8 +47,8 @@ def getMultiChannelArtifact(data,Fs,NChannel,figures=None):
     for i in range(NChannel):
         datah[i] = highPassFilter(data[i], Fs, 600)
 
-    medianh = np.median(datah,axis=0)
-    datah = datah - medianh
+    #medianh = np.median(datah,axis=0)
+    #datah = datah - medianh
     #for i in range(NChannel):
     #    datah[i] -= medianh
         
@@ -322,6 +322,7 @@ def artifactRemovalChunkb(data_art, Fs,multichannel=None,figures=None,ampGain=de
         fig = plt.figure(figsize=(10,6))
         plt.plot(xRange,data_art*ampGain,color='blue',label='Artf-data')
         plt.plot(xRange,XNew*ampGain,color='red',label='new-data')
+        plt.plot(xRange,ampGain*(data_art-XNew),color='green',label='residue')
         if multichannel is not None:
             for i in range(len(multichannel)):
                 plt.plot(multichannel[i]/Fs,np.zeros(multichannel[i].shape)-(i+1),'.')
@@ -337,6 +338,8 @@ def artifactRemovalChunkb(data_art, Fs,multichannel=None,figures=None,ampGain=de
         fig = plt.figure(figsize=(10,6))
         plt.plot(xRange,ampGain*bandPassFilter(data_art, Fs, 300,8e3),color='blue',label='Artf-data')
         plt.plot(xRange,ampGain*bandPassFilter(XNew,Fs,300,8e3),color='red',label='new-data')
+        plt.plot(xRange,ampGain*bandPassFilter(data_art-XNew,Fs,300,8e3),color='green',label='residue')
+
         if multichannel is not None:
             for i in range(len(multichannel)):
                 plt.plot(multichannel[i]/Fs,np.zeros(multichannel[i].shape)-1-i*.2,'.')
@@ -415,7 +418,7 @@ def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverl
               figNameBase = 'show' if figures=='show' else figBase + 'C{:03}Artif'.format(i)
 
             artifMulti = getMultiChannelArtifact(data,Fs,NChannel,figures=figNameBase)
-
+            #artifMulti = None ##DEBUG
             out = np.zeros((NChannel,chunkSize))
     
             if singleThread:
@@ -445,6 +448,27 @@ def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverl
             
             median = np.median(out,axis=0)
             out = out - median
+            
+            if figures:
+                figBase + 'C{:03}Artif'.format(i)
+                fig=plt.figure(figsize=(10,8))
+                xRange = np.array(range(len(median)))/Fs
+                for i in range(NChannel):
+                    plt.plot(xRange,out[i]+1000*i+1000,'r')
+                    #plt.plot(datah[i]-medianh+1000*i+33000,'b')
+                for i in range(len(artifMulti)):
+                    plt.plot(artifMulti[i]/Fs,np.zeros(artifMulti[i].shape)-(i+2)*200,'.')
+                plt.ylim(-1000,(NChannel+1)*1000)
+                plt.xlabel('Time [s]')
+                fig.tight_layout()
+                if figures == 'show':
+                    plt.show()
+                else:
+                    #plt.savefig(figures+'Data.pdf')
+                    #plt.savefig(figures+'Data.svg')
+                    fig.savefig(figBase + 'C{:03}Cleaned.png'.format(i),dpi=600)
+                plt.close(fig)
+
 
             # instead of saving the cleaned data, we save the artifact
             if extractArtifact:
@@ -462,6 +486,9 @@ def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverl
             arrout.tofile(fod,sep="",format="%d")
             chunk_total_time = time.time() - chunk_start_time
             logger.info('total chunk time --- {:d} minutes, {:.2f} seconds ---'.format(round((chunk_total_time)/60),chunk_total_time%60))
+
+            if i==0:
+                break
 
 
 if __name__ == '__main__':
@@ -486,7 +513,7 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.DEBUG,format='%(levelname)s;p%(process)s;%(message)s')
     else:
         logging.basicConfig(level=logging.INFO,format='%(levelname)s;p%(process)s;%(message)s')
-        os.environ["DISPLAY"]=''
+        #os.environ["DISPLAY"]=''
 
     artifactRemoval(filename=args.filename,
                     Fs=args.samplingF,
