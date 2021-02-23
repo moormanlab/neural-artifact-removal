@@ -73,7 +73,8 @@ def getMultiChannelArtifact(data,Fs,NChannel,figures=None):
         Di = np.array(coeff[N-i-1][1])
         sigma_sq = np.median(np.abs(Di))/0.6745
         ThD = 8*sigma_sq #  5*found to be similar to take 3 IQD
-
+        #import newMedian
+        #ThD = newMedian.runNewMedian(np.abs(Di),L=63)
         artifff= np.array([],dtype=int)
         artifff = np.concatenate((artifff,np.where(Di>ThD)[0]))
         artifff = np.concatenate((artifff,np.where(Di<-ThD)[0]))
@@ -82,8 +83,11 @@ def getMultiChannelArtifact(data,Fs,NChannel,figures=None):
 
         if figures:
             ax[i].plot(xRange,Di,color='red',label='new',linewidth=.1)
+            #plotWithHist(ax[i],xRange,Di,color='red',label='new')
             ax[i].axhline(ThD,0,1,color='k')
             ax[i].axhline(-ThD,0,1,color='k')
+            #ax[i].plot(xRange,ThD,color='k')
+            #ax[i].plot(xRange,-ThD,color='k')
             ax[i].set_ylim(max(-3*ThD,Di.min()),min(3*ThD,Di.max()))
             ax[i].set_ylabel('Coeff {:1}'.format(i+1))
             ax[i].set_yticklabels('')
@@ -104,9 +108,10 @@ def getMultiChannelArtifact(data,Fs,NChannel,figures=None):
         if figures == 'show':
             plt.show()
         else:
-            fig.savefig(figures+'Coeff.png',dpi=600)
-            #fig.savefig(figures+'Coeff.pdf')
-            #fig.savefig(figures+'Coeff.svg')
+            figname = figures+'Coeff'
+            fig.savefig(figname+'.png',dpi=600)
+            #fig.savefig(figname+'.pdf')
+            #fig.savefig(figuname'.svg')
         plt.close(fig)
     
     medianhabs -= np.median(medianhabs)
@@ -134,9 +139,10 @@ def getMultiChannelArtifact(data,Fs,NChannel,figures=None):
         if figures == 'show':
             plt.show()
         else:
-            #plt.savefig(figures+'Data.pdf')
-            #plt.savefig(figures+'Data.svg')
-            fig.savefig(figures+'Data.png',dpi=600)
+            figname = figures+'Data'
+            #plt.savefig(figname+'.pdf')
+            #plt.savefig(figname+'.svg')
+            fig.savefig(figname+'.png',dpi=600)
         plt.close(fig)
     #return artifMulti
     return artiff
@@ -243,14 +249,14 @@ def artifactRemovalCoeff(coeffi, Fs,I,multichannel=None,figures=None,ampGain=def
             #ax[i].axhline(-Thi,0,1,color='g')
             ax[i].axhline(ThD,0,1,color='k')
             ax[i].axhline(-ThD,0,1,color='k')
-            ax[i].axhline(ThHigh,0,1,color='k',linestyle='-.',linewidth=3.)
-            ax[i].axhline(ThLow,0,1,color='k',linestyle='-.',linewidth=3.)
-            ax[i].axhline(m0,0,1,color='g',linestyle=':',linewidth=3.)
-            ax[i].axhline(q9,0,1,color='g',linestyle=':',linewidth=3.)
-            ax[i].axhline(q95,0,1,color='g',linestyle=':',linewidth=3.)
-            ax[i].axhline(m2,0,1,color='g',linestyle=':',linewidth=3.)
-            ax[i].axhline(q1,0,1,color='g',linestyle=':',linewidth=3.)
-            ax[i].axhline(q05,0,1,color='g',linestyle=':',linewidth=3.)
+            ax[i].axhline(ThHigh,0,1,color='k',linestyle='-.',linewidth=2.)
+            ax[i].axhline(ThLow,0,1,color='k',linestyle='-.',linewidth=2.)
+            ax[i].axhline(m0,0,1,color='g',linestyle=':',linewidth=2.)
+            ax[i].axhline(q9,0,1,color='g',linestyle=':',linewidth=2.)
+            ax[i].axhline(q95,0,1,color='g',linestyle=':',linewidth=2.)
+            ax[i].axhline(m2,0,1,color='g',linestyle=':',linewidth=2.)
+            ax[i].axhline(q1,0,1,color='g',linestyle=':',linewidth=2.)
+            ax[i].axhline(q05,0,1,color='g',linestyle=':',linewidth=2.)
 
             ## This will show that ThD is similar to 3*IQD
             #a1=np.quantile(coeff[N-i-1][1],0.25)
@@ -350,9 +356,10 @@ def artifactRemovalChunkb(data_art, Fs,multichannel=None,figures=None,ampGain=de
         if figures == 'show':
             plt.show()
         else:
-            #plt.savefig(figures+'.pdf')
-            #plt.savefig(figures+'.svg')
-            fig.savefig(figures+'Filt.png',dpi=600)
+            figname = figures+'Filt'
+            #plt.savefig(figname+'.pdf')
+            #plt.savefig(figname+'.svg')
+            fig.savefig(figname+'.png',dpi=600)
         plt.close(fig)
 
     return XNew
@@ -363,13 +370,14 @@ def artifactRemovalChunk(data_art, Fs,multichannel=None,figures=None):
     return artifactRemovalChunkb(data_art, Fs,multichannel=multichannel,figures=figures)
 
 
-def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverlap,outputFile=None,extractArtifact=False,figures=False,singleThread=False):
+def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverlap,outputFile=None,extractArtifact=False,figures=False,singleThread=False,dataType=np.int16):
     filepath = os.path.dirname(os.path.abspath(filename))
     filebasename = os.path.basename(filename)
 
     filesize=os.path.getsize(filename)
-    assert filesize%(2*NChannel) == 0
-    totalTimes = int(filesize/(2*NChannel))
+    dataSize = np.dtype(dataType).itemsize
+    assert filesize%(dataSize*NChannel) == 0
+    totalTimes = int(filesize/(dataSize*NChannel))
     
     lastChunk = (totalTimes-chunkSize)%(chunkSize-2*overlap)
     Nchunks = int(np.ceil((totalTimes-chunkSize)/(chunkSize-2*overlap)))+1*(lastChunk!=0)
@@ -394,31 +402,52 @@ def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverl
         for i in range(Nchunks):
             chunk_start_time = time.time()
             logger.info('Chunk {a} of {b}'.format(a=i+1,b=Nchunks))
-            offset = 2*NChannel*(chunkSize-2*overlap)*i
+            offset = dataSize*NChannel*(chunkSize-2*overlap)*i
             if i==0: #first chunk
-                data = np.fromfile(filename, dtype=np.int16, count=chunkSize*NChannel, sep='',offset=offset)
+                data = np.fromfile(filename, dtype=dataType, count=chunkSize*NChannel, sep='',offset=offset)
             elif i==Nchunks-1: #last chunk
                 if lastChunk: # the last chunk needs padding to next power of 2
                     lastChunkB = 2*overlap+lastChunk
                     logger.info('lastChunk {}'.format(lastChunkB))
-                    data = np.fromfile(filename, dtype=np.int16, count=lastChunkB*NChannel, sep='',offset=offset)
+                    data = np.fromfile(filename, dtype=dataType, count=lastChunkB*NChannel, sep='',offset=offset)
                     chunkSize = np.power(2,int(np.ceil(np.log2(lastChunkB)))) # override chunkSize only for last chunk
                     LPadd = chunkSize -lastChunkB
                     logger.info('LPadd {}'.format(LPadd))
                     data=np.pad(data,((0,LPadd*NChannel)),mode='constant')
                 else:
                     #last chunk fits perfectly (should almost never happen)
-                    data = np.fromfile(filename, dtype=np.int16, count=chunkSize*NChannel, sep='',offset=offset)
+                    data = np.fromfile(filename, dtype=dataType, count=chunkSize*NChannel, sep='',offset=offset)
             else: #all other chunks
-                data = np.fromfile(filename, dtype=np.int16, count=chunkSize*NChannel, sep='',offset=offset)
+                data = np.fromfile(filename, dtype=dataType, count=chunkSize*NChannel, sep='',offset=offset)
                 
-            data = np.transpose(np.reshape(data,(-1,NChannel)))
+            data = np.transpose(np.reshape(data,(-1,NChannel))).astype(np.float)
 
+            if figures:
+                medianorig = np.median(data,axis=0)
+                fig=plt.figure(figsize=(10,8))
+                xRange = np.array(range(data.shape[1]))/Fs
+                for j in range(NChannel):
+                    plt.plot(xRange,data[j]-medianorig+1000*j+1000)
+                plt.plot(xRange,medianorig,'k--')
+                plt.ylim(-1000,(NChannel+1)*1000)
+                plt.xlabel('Time [s]')
+                fig.tight_layout()
+                if figures == 'show':
+                    plt.show()
+                else:
+                    figname = figBase + 'C{:3}Orig'.format(i)
+                    #plt.savefig(figname+'.pdf')
+                    #plt.savefig(figname+'.svg')
+                    fig.savefig(figname+'.png',dpi=600)
+                plt.close(fig)
+            
             if figures:
               figNameBase = 'show' if figures=='show' else figBase + 'C{:03}Artif'.format(i)
 
             artifMulti = getMultiChannelArtifact(data,Fs,NChannel,figures=figNameBase)
             #artifMulti = None ##DEBUG
+            #figures = False ##DEBUG
+            #figNameBase = None ##DEBUG
             out = np.zeros((NChannel,chunkSize))
     
             if singleThread:
@@ -449,24 +478,26 @@ def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverl
             median = np.median(out,axis=0)
             out = out - median
             
+            #figures = 'show' ##DEBUG
             if figures:
-                figBase + 'C{:03}Artif'.format(i)
                 fig=plt.figure(figsize=(10,8))
                 xRange = np.array(range(len(median)))/Fs
-                for i in range(NChannel):
-                    plt.plot(xRange,out[i]+1000*i+1000,'r')
-                    #plt.plot(datah[i]-medianh+1000*i+33000,'b')
-                for i in range(len(artifMulti)):
-                    plt.plot(artifMulti[i]/Fs,np.zeros(artifMulti[i].shape)-(i+2)*200,'.')
+                for j in range(NChannel):
+                    line=plt.plot(xRange,out[j]+1000*j+1000)
+                    plt.plot(xRange,data[j]-medianorig+1000*j+1000,ls='--',color=line[0].get_c())
+                if artifMulti:
+                  for k in range(len(artifMulti)):
+                    plt.plot(artifMulti[k]/Fs,np.zeros(artifMulti[i].shape)-(i+2)*200,'.')
                 plt.ylim(-1000,(NChannel+1)*1000)
                 plt.xlabel('Time [s]')
                 fig.tight_layout()
                 if figures == 'show':
                     plt.show()
                 else:
-                    #plt.savefig(figures+'Data.pdf')
-                    #plt.savefig(figures+'Data.svg')
-                    fig.savefig(figBase + 'C{:03}Cleaned.png'.format(i),dpi=600)
+                    figname = figBase + 'C{:03}Cleaned'.format(i)
+                    #plt.savefig(figname+'.pdf')
+                    #plt.savefig(figname+'.svg')
+                    fig.savefig(figname+'.png',dpi=600)
                 plt.close(fig)
 
 
@@ -487,8 +518,9 @@ def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverl
             chunk_total_time = time.time() - chunk_start_time
             logger.info('total chunk time --- {:d} minutes, {:.2f} seconds ---'.format(round((chunk_total_time)/60),chunk_total_time%60))
 
-            if i==0:
-                break
+#            if i==0:  ##DEBUG
+#                print('breaking bad')
+#                break
 
 
 if __name__ == '__main__':
@@ -506,6 +538,7 @@ if __name__ == '__main__':
     parser.add_argument('-e','--extract', default=False, action='store_true', help= 'extract artifact instead of data')
     parser.add_argument('-p','--plotFigures', default=False, action='store_true', help= 'creates a folder narFigs with pictures of the working alghoritm')
     parser.add_argument('-d','--debug', default=False, action='store_true', help= 'show figures instead of saving them (forces singleThread=True)')
+    parser.add_argument('-t','--dataType', type=str, default='int16', help= 'numpy data type ex: int16, uint16, int32, float16, float32, etc')
     args = parser.parse_args()
     if args.debug == True:
         args.plotFigures='show'
@@ -523,6 +556,7 @@ if __name__ == '__main__':
                     outputFile=args.outputFile,
                     extractArtifact=args.extract,
                     figures=args.plotFigures,
-                    singleThread=args.singleThread)
+                    singleThread=args.singleThread,
+                    dataType=args.dataType)
     total_time = time.time() - start_time
     logger.info('total --- {:d} minutes, {:.2f} seconds ---'.format(round((total_time)/60),total_time%60))
