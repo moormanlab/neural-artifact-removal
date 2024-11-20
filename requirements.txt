@@ -1,0 +1,10 @@
+python3    # 3.8 ray is not working with 3.9 for the moment
+scipy      # 1.5.4
+matplotlib # 3.3.4
+pywavelets # 1.1.1
+ray        # 1.2.0 parallel processing
+#optional
+ipython    # to test code
+ephyviewer # to analize dataset
+neo        # for ephyviewer
+pyqt5      # for ephyviewer

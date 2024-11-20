@@ -391,7 +391,7 @@ def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverl
       fileout = outputFile
 
     if figures:
-      figBase = os.path.dirname(os.path.abspath(outputFile)) + '/' + 'narFigs/'
+      figBase = os.path.dirname(os.path.abspath(fileout)) + '/' + 'narFigs/'
       os.makedirs(figBase,exist_ok=True)
     else:
       figNameBase = None
@@ -420,7 +420,7 @@ def artifactRemoval(filename,Fs,NChannel,chunkSize=defChunkSize,overlap=defOverl
             else: #all other chunks
                 data = np.fromfile(filename, dtype=dataType, count=chunkSize*NChannel, sep='',offset=offset)
                 
-            data = np.transpose(np.reshape(data,(-1,NChannel))).astype(np.float)
+            data = np.transpose(np.reshape(data,(-1,NChannel))).astype(float)
 
             if figures:
                 medianorig = np.median(data,axis=0)
@@ -539,15 +539,18 @@ if __name__ == '__main__':
     parser.add_argument('-p','--plotFigures', default=False, action='store_true', help= 'creates a folder narFigs with pictures of the working alghoritm')
     parser.add_argument('-d','--debug', default=False, action='store_true', help= 'show figures instead of saving them (forces singleThread=True)')
     parser.add_argument('-t','--dataType', type=str, default='int16', help= 'numpy data type ex: int16, uint16, int32, float16, float32, etc')
+    parser.add_argument('-l','--logFile', type=str, default=None, help='logfile')
     args = parser.parse_args()
+    if args.logFile == None:
+        filebasename = os.path.basename(args.filename)
+        args.logFile = os.path.dirname(os.path.abspath(args.filename)) + '/' + filebasename.rsplit('.',1)[0] + '.log'
     if args.debug == True:
         args.plotFigures='show'
         args.singleThread=True
-        logging.basicConfig(level=logging.DEBUG,format='%(levelname)s;p%(process)s;%(message)s')
+        logging.basicConfig(filename=args.logFile,filemode='w+',level=logging.DEBUG,format='%(levelname)s;p%(process)s;%(message)s')
     else:
-        logging.basicConfig(level=logging.INFO,format='%(levelname)s;p%(process)s;%(message)s')
+        logging.basicConfig(filename=args.logFile,filemode='w+',level=logging.INFO,format='%(levelname)s;p%(process)s;%(message)s')
         #os.environ["DISPLAY"]=''
-
     artifactRemoval(filename=args.filename,
                     Fs=args.samplingF,
                     NChannel=args.channels,

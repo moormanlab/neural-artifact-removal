@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from artifactRemoval import getMultiChannelArtifact, mainArtifact, mainArtifactParal, artifactRemovalb, artifactRemovalCoeff, plotWithHist, bandPassFilter, highPassFilter, argumentParser
+from artifactRemoval import getMultiChannelArtifact, artifactRemoval, artifactRemovalSingleThread, artifactRemovalChunkb, artifactRemovalCoeff, plotWithHist, bandPassFilter, highPassFilter, argumentParser
 import numpy as np
 import matplotlib.pyplot as plt
 from pywt import swt,iswt
@@ -20,7 +20,7 @@ def testParallel(filename,Fs,NChannel,chunkSize):
     start_time = time.time()
     out1 = np.zeros((NChannel,chunkSize))
     for i in range(NChannel):
-        out1[i]=artifactRemovalb(data[i],Fs)
+        out1[i]=artifactRemovalChunkb(data[i],Fs)
     end_time = time.time()
     print('clasic --- {:d} minutes, {:4.2} seconds ---'.format(round((end_time - start_time)/60),end_time%60))
 
@@ -79,7 +79,7 @@ def testArtifact(filename,Fs,NChannel,channel,chunkSize,ampGain):
     #0-3 15 19 20 21 24 27 29   #for the 02/06
     #16-17 (med) 18 (high) 24-27 (low) 4 (noise) 5 (high) #for 1903 / 20200228
     data = data[channel] 
-    out = artifactRemovalb(data,Fs,ampGain,makefigures=True,multichannel=artifMulti)
+    out = artifactRemovalChunkb(data,Fs,makefigures=True,ampGain=ampGain)
    
     xRange = np.array(range(chunkSize))/Fs
 
@@ -106,15 +106,15 @@ def testArtifact(filename,Fs,NChannel,channel,chunkSize,ampGain):
 def testOverlap(filename,Fs,NChannel,chunkSize,overlap,ampGain):
     data = np.fromfile(filename, dtype=np.int16, count=2*chunkSize*NChannel, sep='')
     data = np.transpose(np.reshape(data,(-1,NChannel)))
-    outA = artifactRemovalb(data[0],Fs)
+    outA = artifactRemovalChunkb(data[0],Fs)
 
     data = np.fromfile(filename, dtype=np.int16, count=chunkSize*NChannel, sep='')
     data = np.transpose(np.reshape(data,(-1,NChannel)))
-    outB = artifactRemovalb(data[0],Fs)
+    outB = artifactRemovalChunkb(data[0],Fs)
 
     data = np.fromfile(filename, dtype=np.int16, count=chunkSize*NChannel, sep='',offset=2*NChannel*(chunkSize))
     data = np.transpose(np.reshape(data,(-1,NChannel)))
-    outC = artifactRemovalb(data[0],Fs)
+    outC = artifactRemovalChunkb(data[0],Fs)
     
     outD = np.zeros(2*chunkSize)
     np.concatenate((outB,outC),out=outD)
@@ -130,18 +130,15 @@ def fixOverlap(filename,Fs,NChannel,chunkSize,overlap,ampGain):
 
     data = np.fromfile(filename, dtype=np.int16, count=2*chunkSize*NChannel, sep='')
     data = np.transpose(np.reshape(data,(-1,NChannel)))
-    #outA = artifactRemoval(data[0],Fs)
-    outA = artifactRemoval(data[0],Fs,filtered=False)
+    outA = artifactRemovalChunkb(data[0],Fs)
 
     data = np.fromfile(filename, dtype=np.int16, count=chunkSize*NChannel, sep='')
     data = np.transpose(np.reshape(data,(-1,NChannel)))
-    #outB = artifactRemoval(data[0],Fs)
-    outB = artifactRemoval(data[0],Fs,filtered=False)
+    outB = artifactRemovalChunkb(data[0],Fs)
 
     data = np.fromfile(filename, dtype=np.int16, count=chunkSize*NChannel, sep='',offset=2*NChannel*(chunkSize-2*overlap))
     data = np.transpose(np.reshape(data,(-1,NChannel)))
-    #outC = artifactRemoval(data[0],Fs)
-    outC = artifactRemoval(data[0],Fs,filtered=False)
+    outC = artifactRemovalChunkb(data[0],Fs)
     
     outD = np.zeros(2*chunkSize)
     np.concatenate((outB[:-overlap],outC[overlap:]),out=outD[:-2*overlap])
@@ -181,7 +178,7 @@ def testMultiChannel(filename,Fs,NChannel,chunkSize,ampGain):
     medianorig = np.median(data,axis=0)
 
     for i in range(NChannel):
-        out[i] = artifactRemovalb(data[i],Fs)
+        out[i] = artifactRemovalChunkb(data[i],Fs)
     
     median = np.median(out,axis=0)
     for i in range(NChannel):
@@ -193,7 +190,7 @@ def testMultiChannel(filename,Fs,NChannel,chunkSize,ampGain):
     out = np.zeros((NChannel,chunkSize))
 
     for i in range(NChannel):
-        out[i] = artifactRemovalb(data[i],Fs,multichannel=artifMulti)
+        out[i] = artifactRemovalChunkb(data[i],Fs,multichannel=artifMulti)
     
     median = np.median(out,axis=0)
     for i in range(NChannel):
@@ -269,7 +266,7 @@ def extractArtifact(filename,Fs,NChannel,channel,chunkSize,ampGain):
     data = data[channel] # 16-17 (med) 18 (high) 24-27 (low) 4 (noise) 5 (high) #for 1903 / 20200228
     #data = data[7]
     #data = data[14]
-    out = artifactRemovalb(data,Fs,makefigures=False,multichannel=artifMulti)
+    out = artifactRemovalChunkb(data,Fs,makefigures=False,multichannel=artifMulti)
     print(data.dtype)
     artifact = data-out.astype('int16')
     print(artifact.dtype)
