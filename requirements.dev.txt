@@ -1,0 +1,4 @@
+ipython
+# neo # older use another venv
+pyqt5
+ephyviewer
